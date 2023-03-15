@@ -1,13 +1,11 @@
 version: 1
-send_anonymous_usage_stats: true
-project_id: "tap-partnerize"
 default_environment: test
-environments:
-- name: test
+send_anonymous_usage_stats: true
+project_id: 69494b3c-ca88-40e3-9f51-da328d9bf5a3
 plugins:
   extractors:
-  - name: "tap-partnerize"
-    namespace: "tap_partnerize"
+  - name: tap-partnerize
+    namespace: tap_partnerize
     pip_url: -e .
     capabilities:
     - state
@@ -15,15 +13,13 @@ plugins:
     - discover
     - about
     - stream-maps
-    config:
-      start_date: '2010-01-01T00:00:00Z'
     settings:
-    # TODO: To configure using Meltano, declare settings and their types here:
     - name: username
     - name: password
       kind: password
+    - name: publisher_id
     - name: start_date
-      value: '2010-01-01T00:00:00Z'
+    - name: end_date
   loaders:
   - name: target-jsonl
     variant: andyh1203

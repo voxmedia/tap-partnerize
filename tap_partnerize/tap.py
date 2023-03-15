@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
-
-# TODO: Import your custom stream types here:
 from tap_partnerize import streams
 
 
@@ -14,31 +12,40 @@ class TapPartnerize(Tap):
 
     name = "tap-partnerize"
 
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "auth_token",
+            "username",
             th.StringType,
             required=True,
             secret=True,  # Flag config as protected.
-            description="The token to authenticate against the API service",
+            description="The username to authenticate the Partnerize account",
         ),
         th.Property(
-            "project_ids",
-            th.ArrayType(th.StringType),
+            "password",
+            th.StringType,
             required=True,
-            description="Project IDs to replicate",
+            secret=True,  # Flag config as protected.
+            description="The password to authenticate the Partnerize account",
+        ),
+        th.Property(
+            "publisher_id",
+            th.StringType,
+            required=True,
+            description="The partner id",
         ),
         th.Property(
             "start_date",
             th.DateTimeType,
-            description="The earliest record date to sync",
+            required=True,
+            description="The earliest record date to retrieve",
+            default="2020-01-01",
         ),
         th.Property(
-            "api_url",
-            th.StringType,
-            default="https://api.mysample.com",
-            description="The url for the API service",
+            "end_date",
+            th.DateTimeType,
+            required=True,
+            description="The latest record date to retrieve",
+            default="2021-01-01",
         ),
     ).to_dict()
 
@@ -49,8 +56,7 @@ class TapPartnerize(Tap):
             A list of discovered streams.
         """
         return [
-            streams.GroupsStream(self),
-            streams.UsersStream(self),
+            streams.ConversionItemsStream(self),
         ]
 
 
