@@ -35,17 +35,10 @@ class TapPartnerize(Tap):
         ),
         th.Property(
             "start_date",
-            th.DateTimeType,
+            th.DateType,
             required=True,
             description="The earliest record date to retrieve",
             default="2020-01-01",
-        ),
-        th.Property(
-            "end_date",
-            th.DateTimeType,
-            required=True,
-            description="The latest record date to retrieve",
-            default="2021-01-01",
         ),
     ).to_dict()
 

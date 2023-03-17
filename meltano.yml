@@ -19,7 +19,6 @@ plugins:
       kind: password
     - name: publisher_id
     - name: start_date
-    - name: end_date
   loaders:
   - name: target-jsonl
     variant: andyh1203

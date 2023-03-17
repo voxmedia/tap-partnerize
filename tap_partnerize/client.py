@@ -24,12 +24,10 @@ SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 class DayChunkPaginator(BaseAPIPaginator):
     """A paginator that increments days in a date range."""
 
-    def __init__(self, start_date, end_date, increment=1, *args: Any, **kwargs: Any) -> None:
-        start = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+    def __init__(self, start_date, increment=1, *args: Any, **kwargs: Any) -> None:
         super().__init__(start_date)
-        self._value = start
-        self._end = end
+        self._value = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        self._end = datetime.datetime.today()
         self._increment = increment
 
     @property
@@ -123,7 +121,7 @@ class PartnerizeStream(RESTStream):
         return headers
 
     def get_new_paginator(self) -> BaseAPIPaginator:
-        return DayChunkPaginator(start_date=self.config.get("start_date"), end_date=self.config.get("end_date"))
+        return DayChunkPaginator(start_date=self.config.get("start_date"))
 
     def get_next_page_token(
         self,
@@ -139,9 +137,8 @@ class PartnerizeStream(RESTStream):
         Returns:
             The next pagination token.
         """
-        end = datetime.datetime.strptime(self.config.get("end_date"), "%Y-%m-%d")
         current_token = datetime.datetime.strptime(self.next_page_token, "%Y-%m-%d")
-        if current_token <= end:
+        if current_token <= datetime.datetime.today():
             new_token_datetime = current_token + datetime.timedelta(days=1)
             self.next_page_token = datetime.datetime.strftime(new_token_datetime, "%Y-%m-%d")
             return self.next_page_token
