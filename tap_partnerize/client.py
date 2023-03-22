@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 import requests
-import datetime
 import csv
 import logging
 import io
@@ -16,6 +15,7 @@ from singer_sdk.pagination import BaseAPIPaginator
 from requests import Response
 from singer_sdk.plugin_base import PluginBase as TapBaseClass
 from singer_sdk._singerlib import Schema
+from datetime import datetime, timedelta
 
 _Auth = Callable[[requests.PreparedRequest], requests.PreparedRequest]
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
@@ -24,10 +24,10 @@ SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
 class DayChunkPaginator(BaseAPIPaginator):
     """A paginator that increments days in a date range."""
 
-    def __init__(self, start_date, increment=1, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, start_date: str, increment: int = 1, *args: Any, **kwargs: Any) -> None:
         super().__init__(start_date)
-        self._value = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-        self._end = datetime.datetime.today()
+        self._value = datetime.strptime(start_date, "%Y-%m-%d")
+        self._end = datetime.today()
         self._increment = increment
 
     @property
@@ -49,7 +49,7 @@ class DayChunkPaginator(BaseAPIPaginator):
         return self._increment
 
     def get_next(self, response: Response):
-        return self.current_value + datetime.timedelta(days=self.increment) if self.has_more(response) else None
+        return self.current_value + timedelta(days=self.increment) if self.has_more(response) else None
 
     def has_more(self, response: Response) -> bool:
         """Checks if there are more days to process.
@@ -77,23 +77,10 @@ class PartnerizeStream(RESTStream):
 
     url_base = "https://api.partnerize.com"
 
-    def __init__(
-        self,
-        tap: TapBaseClass,
-        name: str | None = None,
-        schema: dict[str, Any] | Schema | None = None,
-        path: str | None = None,
-    ) -> None:
-        """Initialize the REST stream.
-
-        Args:
-            tap: Singer Tap this stream belongs to.
-            schema: JSON schema for records in this stream.
-            name: Name of this stream.
-            path: URL path for this entity stream.
-        """
-        super().__init__(name=name, schema=schema, tap=tap, path=path)
-        self.next_page_token = self.config.get("start_date", "")
+    @property
+    def next_page_token(self) -> str:
+        """Return the API URL root, configurable via tap settings."""
+        return self.config.get("start_date", "")
 
     @property
     def authenticator(self) -> BasicAuthenticator:
@@ -123,27 +110,6 @@ class PartnerizeStream(RESTStream):
     def get_new_paginator(self) -> BaseAPIPaginator:
         return DayChunkPaginator(start_date=self.config.get("start_date"))
 
-    def get_next_page_token(
-        self,
-        response: requests.Response,
-        previous_token: Any | None,
-    ) -> Any | None:
-        """Return a token for identifying next page or None if no more pages.
-
-        Args:
-            response: The HTTP ``requests.Response`` object.
-            previous_token: The previous page token value.
-
-        Returns:
-            The next pagination token.
-        """
-        current_token = datetime.datetime.strptime(self.next_page_token, "%Y-%m-%d")
-        if current_token <= datetime.datetime.today():
-            new_token_datetime = current_token + datetime.timedelta(days=1)
-            self.next_page_token = datetime.datetime.strftime(new_token_datetime, "%Y-%m-%d")
-            return self.next_page_token
-        return None
-
     def get_url_params(
         self,
         context: dict | None,
@@ -163,11 +129,11 @@ class PartnerizeStream(RESTStream):
             "ref_conversion_metric_id": "2"
         }
 
-        next_page_date = datetime.datetime.strftime(next_page_token, "%Y-%m-%d")
+        next_page_date = datetime.strftime(next_page_token, "%Y-%m-%d")
         if next_page_date:
             params["start_date"] = next_page_date
-            end_datetime = datetime.datetime.strptime(next_page_date, "%Y-%m-%d") + datetime.timedelta(days=1)
-            params["end_date"] = datetime.datetime.strftime(end_datetime, "%Y-%m-%d")
+            end_datetime = datetime.strptime(next_page_date, "%Y-%m-%d") + timedelta(days=1)
+            params["end_date"] = datetime.strftime(end_datetime, "%Y-%m-%d")
 
         if self.replication_key:
             params["sort"] = "asc"
@@ -184,35 +150,37 @@ class PartnerizeStream(RESTStream):
             Each record from the source.
         """
 
-        count = 0
         f = io.StringIO(response.text)
-        for row in csv.DictReader(f):
-            count += 1
-            if row.get("meta_conversion_gross_value") == "undefined":
-                row.pop("meta_conversion_gross_value")
-            row["meta_conversion_gross_value"] = set_none_or_cast(row.get("meta_conversion_gross_value"), float)
-            if row.get("meta_item_product_id") == "undefined":
-                row.pop("meta_item_product_id")
-            row["item_value"] = set_none_or_cast(row.get("item_value"), float)
-            row["conversion_lag"] = set_none_or_cast(row.get("conversion_lag"), int)
-            row["meta_conversion_delivery_cost"] = set_none_or_cast(row.get("meta_conversion_delivery_cost"), float)
-            row["creative_type"] = set_none_or_cast(row.get("creative_type"), int)
-            row["item_publisher_commission"] = set_none_or_cast(row.get("item_publisher_commission"), float)
-            row["publisher_commission"] = set_none_or_cast(row.get("publisher_commission"), float)
-            row["value"] = set_none_or_cast(row.get("value"), float)
-            row["quantity"] = set_none_or_cast(row.get("quantity"), int)
-            row["meta_conversion_container_version"] = set_none_or_cast(row.get("meta_conversion_container_version"), int)
-            if row.get("job_id"):
-                continue
-            try:
-                row.pop(None, None)
-                row = {
-                    k.replace('-', '_').lower(): v for k, v in
-                       row.items()
-                }  # BQ Schema doesn't recognize field names with the '-' character
-            except:
-                raise Exception('Check row')
-
+        for count, row in enumerate(csv.DictReader(f)):
             page_date = row.get("conversion_date")
-            logging.info(f"Retrieved {count} records for data chunk {page_date}")
+            logging.info(f"Retrieved {count+1} records for data chunk {page_date}")
             yield row
+
+    def post_process(self, row: dict, context: dict | None = None) -> dict | None:
+        """As needed, append or transform raw data to match expected structure.
+        Args:
+            row: An individual record from the stream.
+            context: The stream context.
+        Returns:
+            The updated record dictionary, or ``None`` to skip the record.
+        """
+        if row.get("meta_conversion_gross_value") == "undefined" or row.get("meta_item_product_id") == "undefined" or row.get("job_id"):
+            return None
+        row["meta_conversion_gross_value"] = set_none_or_cast(row.get("meta_conversion_gross_value"), float)
+        row["item_value"] = set_none_or_cast(row.get("item_value"), float)
+        row["conversion_lag"] = set_none_or_cast(row.get("conversion_lag"), int)
+        row["meta_conversion_delivery_cost"] = set_none_or_cast(row.get("meta_conversion_delivery_cost"), float)
+        row["creative_type"] = set_none_or_cast(row.get("creative_type"), int)
+        row["item_publisher_commission"] = set_none_or_cast(row.get("item_publisher_commission"), float)
+        row["publisher_commission"] = set_none_or_cast(row.get("publisher_commission"), float)
+        row["value"] = set_none_or_cast(row.get("value"), float)
+        row["quantity"] = set_none_or_cast(row.get("quantity"), int)
+        row["meta_conversion_container_version"] = set_none_or_cast(row.get("meta_conversion_container_version"), int)
+        try:
+            row.pop(None, None)  # Removes values from the row which aren't associated with a key (column)
+            row = {
+                k.replace('-', '_').lower(): v for k, v in row.items()
+            }  # BQ Schema doesn't recognize field names with the '-' character
+        except:
+            raise Exception('Check row')
+        return row

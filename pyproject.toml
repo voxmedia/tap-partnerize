@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tap-partnerize"
-version = "0.0.1"
+version = "0.0.3"
 description = "`tap-partnerize` is a Singer tap for Partnerize, built with the Meltano Singer SDK."
 readme = "README.md"
 authors = ["Omar Abed"]
