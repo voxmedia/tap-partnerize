@@ -126,6 +126,7 @@ class PartnerizeStream(RESTStream):
         """
         params: dict = {
             "publisher_id": self.config.get("publisher_id", ""),
+            "convert_currency": "USD",
             "ref_conversion_metric_id": "2"
         }
 
