@@ -7,7 +7,7 @@ from typing import Any, Callable, Iterable
 
 import requests
 import csv
-import logging
+# import logging
 import io
 from singer_sdk.authenticators import BasicAuthenticator
 from singer_sdk.streams import RESTStream
@@ -154,7 +154,7 @@ class PartnerizeStream(RESTStream):
         f = io.StringIO(response.text)
         for count, row in enumerate(csv.DictReader(f)):
             page_date = row.get("conversion_date")
-            logging.info(f"Retrieved {count+1} records for data chunk {page_date}")
+#             logging.info(f"Retrieved {count+1} records for data chunk {page_date}")
             yield row
 
     def post_process(self, row: dict, context: dict | None = None) -> dict | None:
