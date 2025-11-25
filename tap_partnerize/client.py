@@ -62,6 +62,9 @@ class DayChunkPaginator(BaseAPIPaginator):
         """
         return self.current_value < self.end_date
 
+    def continue_if_empty(self, response: Response) -> bool:
+        return True
+
 
 def set_none_or_cast(value, expected_type):
     if value == '' or value is None:
