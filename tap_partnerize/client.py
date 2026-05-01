@@ -176,8 +176,8 @@ class PartnerizeStream(RESTStream):
             row["meta_conversion_gross_value"] = set_none_or_cast(gross_value, float)
         except (TypeError, ValueError):
             LOGGER.warning(
-                "Dropping row with non-numeric meta_conversion_gross_value=%r. "
-                "conversion_id=%r conversion_item_id=%r "
+                "Unable to parse meta_conversion_gross_value=%r as float; "
+                "setting None. conversion_id=%r conversion_item_id=%r "
                 "publisher_reference=%r advertiser_reference=%r",
                 gross_value,
                 row.get("conversion_id"),
@@ -185,7 +185,7 @@ class PartnerizeStream(RESTStream):
                 row.get("publisher_reference"),
                 row.get("advertiser_reference"),
             )
-            return None
+            row["meta_conversion_gross_value"] = None
         row["item_value"] = set_none_or_cast(row.get("item_value"), float)
         row["conversion_lag"] = set_none_or_cast(row.get("conversion_lag"), int)
         delivery_cost = row.get("meta_conversion_delivery_cost")
