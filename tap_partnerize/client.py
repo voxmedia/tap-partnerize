@@ -15,7 +15,7 @@ from singer_sdk.streams import RESTStream
 from singer_sdk.pagination import BaseAPIPaginator
 from requests import Response
 from singer_sdk.plugin_base import PluginBase as TapBaseClass
-from singer_sdk._singerlib import Schema
+from singer_sdk import typing as th
 from datetime import datetime, timedelta
 
 _Auth = Callable[[requests.PreparedRequest], requests.PreparedRequest]
@@ -63,6 +63,9 @@ class DayChunkPaginator(BaseAPIPaginator):
             Boolean flag used to indicate if the endpoint has more pages.
         """
         return self.current_value < self.end_date
+
+    def continue_if_empty(self, response: Response) -> bool:
+        return True
 
 
 def set_none_or_cast(value, expected_type):
