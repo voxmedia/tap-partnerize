@@ -51,3 +51,28 @@ def test_post_process_ignores_non_numeric_delivery_cost(caplog):
 def test_post_process_still_raises_for_other_non_numeric_fields():
     with pytest.raises(ValueError):
         processed_conversion_row(item_value="Standard")
+
+
+def test_post_process_ignores_non_numeric_gross_value(caplog):
+    caplog.set_level(logging.WARNING, logger="tap_partnerize.client")
+
+    row = processed_conversion_row(meta_conversion_gross_value="false")
+
+    assert row["meta_conversion_gross_value"] is None
+    assert row["item_value"] == 20.00
+    assert "meta_conversion_gross_value" in caplog.text
+    assert "false" in caplog.text
+    assert "conversion-123" in caplog.text
+    assert "item-456" in caplog.text
+
+
+def test_post_process_keeps_numeric_gross_value():
+    row = processed_conversion_row(meta_conversion_gross_value="42.10")
+
+    assert row["meta_conversion_gross_value"] == 42.10
+
+
+def test_post_process_keeps_empty_gross_value():
+    row = processed_conversion_row(meta_conversion_gross_value="")
+
+    assert row["meta_conversion_gross_value"] is None

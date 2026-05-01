@@ -10,7 +10,7 @@ import io
 import logging
 
 import requests
-from singer_sdk.authenticators import BasicAuthenticator
+from requests.auth import HTTPBasicAuth
 from singer_sdk.streams import RESTStream
 from singer_sdk.pagination import BaseAPIPaginator
 from requests import Response
@@ -88,14 +88,13 @@ class PartnerizeStream(RESTStream):
         return self.config.get("start_date", "")
 
     @property
-    def authenticator(self) -> BasicAuthenticator:
+    def authenticator(self) -> HTTPBasicAuth:
         """Return a new authenticator object.
 
         Returns:
             An authenticator instance.
         """
-        return BasicAuthenticator.create_for_stream(
-            self,
+        return HTTPBasicAuth(
             username=self.config.get("username", ""),
             password=self.config.get("password", ""),
         )
@@ -172,7 +171,21 @@ class PartnerizeStream(RESTStream):
         """
         if row.get("meta_conversion_gross_value") == "undefined" or row.get("meta_item_product_id") == "undefined" or row.get("job_id"):
             return None
-        row["meta_conversion_gross_value"] = set_none_or_cast(row.get("meta_conversion_gross_value"), float)
+        gross_value = row.get("meta_conversion_gross_value")
+        try:
+            row["meta_conversion_gross_value"] = set_none_or_cast(gross_value, float)
+        except (TypeError, ValueError):
+            LOGGER.warning(
+                "Unable to parse meta_conversion_gross_value=%r as float; "
+                "setting None. conversion_id=%r conversion_item_id=%r "
+                "publisher_reference=%r advertiser_reference=%r",
+                gross_value,
+                row.get("conversion_id"),
+                row.get("conversion_item_id"),
+                row.get("publisher_reference"),
+                row.get("advertiser_reference"),
+            )
+            row["meta_conversion_gross_value"] = None
         row["item_value"] = set_none_or_cast(row.get("item_value"), float)
         row["conversion_lag"] = set_none_or_cast(row.get("conversion_lag"), int)
         delivery_cost = row.get("meta_conversion_delivery_cost")
