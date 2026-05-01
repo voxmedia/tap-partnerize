@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-import requests
 import csv
-# import logging
 import io
+import logging
+
+import requests
 from singer_sdk.authenticators import BasicAuthenticator
 from singer_sdk.streams import RESTStream
 from singer_sdk.pagination import BaseAPIPaginator
@@ -19,6 +20,7 @@ from datetime import datetime, timedelta
 
 _Auth = Callable[[requests.PreparedRequest], requests.PreparedRequest]
 SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
+LOGGER = logging.getLogger(__name__)
 
 
 class DayChunkPaginator(BaseAPIPaginator):
@@ -170,7 +172,21 @@ class PartnerizeStream(RESTStream):
         row["meta_conversion_gross_value"] = set_none_or_cast(row.get("meta_conversion_gross_value"), float)
         row["item_value"] = set_none_or_cast(row.get("item_value"), float)
         row["conversion_lag"] = set_none_or_cast(row.get("conversion_lag"), int)
-        row["meta_conversion_delivery_cost"] = set_none_or_cast(row.get("meta_conversion_delivery_cost"), float)
+        delivery_cost = row.get("meta_conversion_delivery_cost")
+        try:
+            row["meta_conversion_delivery_cost"] = set_none_or_cast(delivery_cost, float)
+        except (TypeError, ValueError):
+            LOGGER.warning(
+                "Unable to parse meta_conversion_delivery_cost=%r as float; "
+                "setting None. conversion_id=%r conversion_item_id=%r "
+                "publisher_reference=%r advertiser_reference=%r",
+                delivery_cost,
+                row.get("conversion_id"),
+                row.get("conversion_item_id"),
+                row.get("publisher_reference"),
+                row.get("advertiser_reference"),
+            )
+            row["meta_conversion_delivery_cost"] = None
         row["creative_type"] = set_none_or_cast(row.get("creative_type"), int)
         row["item_publisher_commission"] = set_none_or_cast(row.get("item_publisher_commission"), float)
         row["publisher_commission"] = set_none_or_cast(row.get("publisher_commission"), float)
